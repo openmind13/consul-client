@@ -1,0 +1,7 @@
+
+[common]
+log_level = "debug" # (trace -> debug -> info -> warn -> error -> fatal)
+
+[service_discovery]
+addr = "localhost:9090"
+token = "blablabla"
