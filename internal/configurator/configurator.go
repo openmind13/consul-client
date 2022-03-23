@@ -1,7 +1,8 @@
 package configurator
 
 import (
-	"consul-client/config"
+	"consul-client/internal/config"
+	"fmt"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
@@ -33,11 +34,17 @@ func StartTomlWatcher(configPath string) error {
 	ConfigChan <- conf
 
 	localWatcher.WatchConfig()
+
 	localWatcher.OnConfigChange(func(in fsnotify.Event) {
+		if err := localWatcher.ReadInConfig(); err != nil {
+			ConfigErrorChan <- err
+			return
+		}
 		newConf := config.Config{}
 		if err := viper.Unmarshal(&newConf); err != nil {
 			ConfigErrorChan <- err
 		} else {
+			fmt.Printf("%+v\n", newConf)
 			if err := newConf.Validate(); err != nil {
 				ConfigErrorChan <- err
 			} else {
@@ -48,9 +55,3 @@ func StartTomlWatcher(configPath string) error {
 
 	return nil
 }
-
-// func StartConsulWatcher() {
-// 	consulWatcher := viper.New()
-// 	// consulWatcher.AddRemot
-// 	shedu
-// }

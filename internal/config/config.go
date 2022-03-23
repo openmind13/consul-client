@@ -33,8 +33,9 @@ func (cc *CommonConfig) Validate() error {
 }
 
 type ServiceDiscoveryConfig struct {
-	Addr  string `mapstructure:"addr"`
-	Token string `mapstructure:"token"`
+	Addr           string `mapstructure:"addr"`
+	Token          string `mapstructure:"token"`
+	HttpListenAddr string `mapstructure:"http_listen_addr"`
 }
 
 var (
@@ -47,6 +48,9 @@ func (sdcfg *ServiceDiscoveryConfig) Validate() error {
 	}
 	if sdcfg.Token == "" {
 		return fmt.Errorf(serviceDiscoveryConfigErrorTemplate, "token")
+	}
+	if sdcfg.HttpListenAddr == "" {
+		return fmt.Errorf(serviceDiscoveryConfigErrorTemplate, "http_addr")
 	}
 	return nil
 }
