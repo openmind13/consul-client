@@ -20,6 +20,9 @@ func main() {
 		log.Fatal(err)
 	}
 	config := <-configurator.ConfigChan
+	if err := configurator.Validator.Struct(config); err != nil {
+		log.Fatal(err)
+	}
 
 	go func() {
 		for {
@@ -32,14 +35,26 @@ func main() {
 		}
 	}()
 
-	serviceDiscovery, err := servicediscovery.NewClient(config.ServiceDiscoveryConfig)
+	serviceDiscovery, err := servicediscovery.NewClient(config)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	go serviceDiscovery.Start(errChan)
-	go serviceDiscovery.ServiceListenHttp(errChan)
+	serviceDiscovery.DeregisterService()
+
+	if err := serviceDiscovery.RegisterService(); err != nil {
+		log.Fatal(err)
+	}
+	log.Println("Consul service", servicediscovery.SERVICE_NAME, "registered")
+
+	go serviceDiscovery.StartServiceUpdater()
+
+	// go serviceDiscovery.StartService(errChan)
+	// go serviceDiscovery.ServiceListenHttp(errChan)
+
+	serviceDiscovery.DeregisterService()
 
 	err = <-errChan
+	serviceDiscovery.DeregisterService()
 	log.Println(err)
 }

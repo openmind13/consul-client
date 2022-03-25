@@ -2,7 +2,6 @@ package servicediscovery
 
 import (
 	"consul-client/internal/config"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -11,92 +10,115 @@ import (
 	"github.com/hashicorp/consul/connect"
 )
 
-var (
-	serviceName = "go-test-service"
+const (
+	SERVICE_NAME = "go-test-service"
+	CHECK_ID     = "go-test-check"
 )
 
 type Client struct {
-	Config          config.ServiceDiscoveryConfig
-	ConsulApiConfig *consulapi.Config
-	Client          *consulapi.Client
-	Agent           *consulapi.Agent
-	Service         *connect.Service
-	KvStorage       *consulapi.KV
+	config          config.Config
+	consulApiConfig *consulapi.Config
+	client          *consulapi.Client
+	agent           *consulapi.Agent
+	service         *connect.Service
+	kvStorage       *consulapi.KV
 }
 
-func NewClient(config config.ServiceDiscoveryConfig) (*Client, error) {
-	if err := config.Validate(); err != nil {
-		return nil, err
-	}
+func NewClient(config config.Config) (*Client, error) {
 
 	consulApiConfig := consulapi.DefaultConfig()
-	consulApiConfig.Address = config.Addr
+	consulApiConfig.Address = config.ConsulAddress
 	consulApiConfig.Token = config.Token
 
 	c := &Client{
-		Config:          config,
-		ConsulApiConfig: consulApiConfig,
+		config:          config,
+		consulApiConfig: consulApiConfig,
 	}
 
 	client, err := consulapi.NewClient(consulApiConfig)
 	if err != nil {
 		return nil, err
 	}
-	c.Client = client
-	c.KvStorage = client.KV()
-	c.Agent = client.Agent()
+	c.client = client
+	c.kvStorage = client.KV()
+	c.agent = client.Agent()
 
 	// create service for local handling
-	// svc, err := connect.NewService("go-test-consul-local", client)
-	svc, err := connect.NewServiceWithConfig(serviceName, connect.Config{
-		Client: c.Client,
-	})
-	if err != nil {
-		return nil, err
-	}
-	c.Service = svc
+	// svc, err := connect.NewService(serviceName, client)
+	// // svc, err := connect.NewServiceWithConfig(serviceName, connect.Config{
+	// // 	Client: c.Client,
+	// // })
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// c.Service = svc
 
-	go func() {
-		for {
-			// fmt.Println("service ready:", c.Service.Ready())
-			c.checkService()
-			time.Sleep(2 * time.Second)
-		}
-	}()
+	// go func() {
+	// 	for {
+	// 		// fmt.Println("service ready:", c.Service.Ready())
+	// 		// c.checkService()
+	// 		time.Sleep(2 * time.Second)
+	// 	}
+	// }()
 
 	return c, nil
 }
 
-func (c *Client) Start(errChan chan error) {
-	// c.storeData()
-	// for {
-	// 	c.listData()
-	// 	time.Sleep(2 * time.Second)
-	// }
+func (c *Client) StartService(errChan chan error) {
 
-	// c.deleteData()
-	// c.getMembers()
+	// go func() {
+	// 	for {
+	// 		// c.checkService()
+	// 		// c.getServices()
 
-	// c.tokenList()
-	// c.test()
+	// 		if err := c.agent.UpdateTTL(CHECK_ID, "output_test", "passing"); err != nil {
+	// 			log.Fatal(err)
+	// 		}
+	// 		time.Sleep(time.Second)
+	// 	}
+	// }()
 
-	c.registerService()
+}
 
-	c.getServices()
+func (c *Client) StartServiceUpdater() {
+	for {
+		if err := c.agent.UpdateTTL(CHECK_ID, "output_test", "passing"); err != nil {
+			log.Fatal(err)
+		}
+		time.Sleep(time.Second)
+	}
+}
 
-	// c.deregisterService()
+func (c *Client) RegisterService() error {
+	httpCheck := consulapi.AgentServiceCheck{
+		CheckID: CHECK_ID,
+		Name:    CHECK_ID,
+		TTL:     "5s",
+	}
+	serviceRegister := consulapi.AgentServiceRegistration{
+		ID:   SERVICE_NAME,
+		Name: SERVICE_NAME,
+		Meta: map[string]string{
+			"test_key": "test_value",
+		},
+		// Port: ,
+		Check: &httpCheck,
+	}
+	if err := c.client.Agent().ServiceRegister(&serviceRegister); err != nil {
+		return err
+	}
+	return nil
+}
 
-	// c.getServices()
-
-	fmt.Println("stop")
+func (c *Client) DeregisterService() error {
+	return c.client.Agent().ServiceDeregister(SERVICE_NAME)
 }
 
 func (c *Client) ServiceListenHttp(errChan chan error) {
 	server := &http.Server{
-		Addr:      c.Config.HttpListenAddr,
-		TLSConfig: c.Service.ServerTLSConfig(),
+		Addr:      c.config.HttpListenAddress,
+		TLSConfig: c.service.ServerTLSConfig(),
 	}
-
-	log.Println("Start listening http on:", c.Config.HttpListenAddr)
+	log.Println("Start listening http on:", c.config.HttpListenAddress)
 	errChan <- server.ListenAndServeTLS("", "")
 }

@@ -1,7 +1,4 @@
 
-[common]
-log_level = "debug" # (trace -> debug -> info -> warn -> error -> fatal)
-
-[service_discovery]
-addr = "localhost:9090"
+consul_address = "http://consul"
 token = "blablabla"
+http_listen_address = "0.0.0.0:8000"

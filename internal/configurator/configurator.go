@@ -1,10 +1,12 @@
 package configurator
 
 import (
-	"consul-client/internal/config"
 	"fmt"
 
+	"consul-client/internal/config"
+
 	"github.com/fsnotify/fsnotify"
+	"github.com/go-playground/validator/v10"
 	"github.com/spf13/viper"
 
 	_ "github.com/spf13/viper/remote"
@@ -16,6 +18,8 @@ var (
 )
 
 type Options struct{}
+
+var Validator = validator.New()
 
 func StartTomlWatcher(configPath string) error {
 	localWatcher := viper.New()
@@ -45,7 +49,7 @@ func StartTomlWatcher(configPath string) error {
 			ConfigErrorChan <- err
 		} else {
 			fmt.Printf("%+v\n", newConf)
-			if err := newConf.Validate(); err != nil {
+			if err := Validator.Struct(newConf); err != nil {
 				ConfigErrorChan <- err
 			} else {
 				ConfigChan <- newConf
