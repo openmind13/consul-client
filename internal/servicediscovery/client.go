@@ -3,7 +3,6 @@ package servicediscovery
 import (
 	"consul-client/internal/config"
 	"log"
-	"net/http"
 	"time"
 
 	consulapi "github.com/hashicorp/consul/api"
@@ -11,8 +10,10 @@ import (
 )
 
 const (
-	SERVICE_NAME = "go-test-service"
-	CHECK_ID     = "go-test-check"
+	// SERVICE_ID   = "go-test-service-dev"
+	SERVICE_NAME = "go-test-service-dev"
+	CHECK_ID     = "check-go-id"
+	CHECK_NAME   = "go-check-name"
 )
 
 type Client struct {
@@ -82,27 +83,33 @@ func (c *Client) StartService(errChan chan error) {
 
 func (c *Client) StartServiceUpdater() {
 	for {
-		if err := c.agent.UpdateTTL(CHECK_ID, "output_test", "passing"); err != nil {
-			log.Fatal(err)
+		if err := c.agent.UpdateTTL(CHECK_ID, "go test check passed", "passing"); err != nil {
+			// log.Fatal(err)
+			log.Println(err)
 		}
 		time.Sleep(time.Second)
 	}
 }
 
 func (c *Client) RegisterService() error {
+	checks := consulapi.AgentServiceChecks{}
+
 	httpCheck := consulapi.AgentServiceCheck{
 		CheckID: CHECK_ID,
-		Name:    CHECK_ID,
-		TTL:     "5s",
+		// Name:    CHECK_NAME,
+		TTL: "5s",
 	}
+
+	checks = append(checks, &httpCheck)
+
 	serviceRegister := consulapi.AgentServiceRegistration{
 		ID:   SERVICE_NAME,
 		Name: SERVICE_NAME,
 		Meta: map[string]string{
 			"test_key": "test_value",
 		},
-		// Port: ,
-		Check: &httpCheck,
+		Tags:   []string{"dev", "test-client", "go"},
+		Checks: checks,
 	}
 	if err := c.client.Agent().ServiceRegister(&serviceRegister); err != nil {
 		return err
@@ -114,11 +121,11 @@ func (c *Client) DeregisterService() error {
 	return c.client.Agent().ServiceDeregister(SERVICE_NAME)
 }
 
-func (c *Client) ServiceListenHttp(errChan chan error) {
-	server := &http.Server{
-		Addr:      c.config.HttpListenAddress,
-		TLSConfig: c.service.ServerTLSConfig(),
-	}
-	log.Println("Start listening http on:", c.config.HttpListenAddress)
-	errChan <- server.ListenAndServeTLS("", "")
-}
+// func (c *Client) ServiceListenHttp(errChan chan error) {
+// 	server := &http.Server{
+// 		Addr:      c.config.HttpListenAddress,
+// 		TLSConfig: c.service.ServerTLSConfig(),
+// 	}
+// 	log.Println("Start listening http on:", c.config.HttpListenAddress)
+// 	errChan <- server.ListenAndServeTLS("", "")
+// }

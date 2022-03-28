@@ -42,17 +42,12 @@ func main() {
 
 	serviceDiscovery.DeregisterService()
 
-	if err := serviceDiscovery.RegisterService(); err != nil {
-		log.Fatal(err)
-	}
-	log.Println("Consul service", servicediscovery.SERVICE_NAME, "registered")
+	// if err := serviceDiscovery.RegisterService(); err != nil {
+	// 	log.Fatal(err)
+	// }
+	// log.Println("Consul service", servicediscovery.SERVICE_NAME, "registered")
 
-	go serviceDiscovery.StartServiceUpdater()
-
-	// go serviceDiscovery.StartService(errChan)
-	// go serviceDiscovery.ServiceListenHttp(errChan)
-
-	serviceDiscovery.DeregisterService()
+	// go serviceDiscovery.StartServiceUpdater()
 
 	err = <-errChan
 	serviceDiscovery.DeregisterService()
