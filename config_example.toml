@@ -1,4 +1,14 @@
 
-consul_address = "http://consul"
-token = "blablabla"
-http_listen_address = "0.0.0.0:8000"
+[consul]
+address = "https://consul"
+token = "some_token"
+service_name = "test-consul-service"
+service_id = "test-consul-service-id"
+check_name = "test-consul-service-http-check"
+check_ttl = "3s"
+update_check_period = "1s"
+service_update_period = "1s"
+tags = [
+    "env-dev",
+    "service-type-test",
+]

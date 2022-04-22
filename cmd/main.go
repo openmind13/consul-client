@@ -1,14 +1,22 @@
 package main
 
 import (
-	"consul-client/internal/configurator"
-	"consul-client/internal/servicediscovery"
+	"consul-client/internal/config"
+	"consul-client/internal/consul"
 	"flag"
-	"log"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
 	cfgPath = flag.String("cfg_path", "./config.toml", "config path")
+)
+
+const (
+	version = "v0.0.0-dev"
 )
 
 func main() {
@@ -16,40 +24,32 @@ func main() {
 
 	errChan := make(chan error, 1)
 
-	if err := configurator.StartTomlWatcher(*cfgPath); err != nil {
-		log.Fatal(err)
-	}
-	config := <-configurator.ConfigChan
-	if err := configurator.Validator.Struct(config); err != nil {
-		log.Fatal(err)
-	}
-
-	go func() {
-		for {
-			select {
-			case config := <-configurator.ConfigChan:
-				log.Printf("new config: %+v\n", config)
-			case configErr := <-configurator.ConfigErrorChan:
-				log.Println("Error in parsing toml config:", configErr)
-			}
-		}
-	}()
-
-	serviceDiscovery, err := servicediscovery.NewClient(config)
+	conf, err := config.Get(*cfgPath)
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
+	}
+	if err := conf.Validate(); err != nil {
+		logrus.Fatal(err)
 	}
 
-	serviceDiscovery.DeregisterService()
+	logrus.Info("Creating consul service")
+	consul, err := consul.NewClient(conf.Consul, version)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	logrus.Info("Starting consul service")
+	go consul.Start(errChan)
 
-	// if err := serviceDiscovery.RegisterService(); err != nil {
-	// 	log.Fatal(err)
-	// }
-	// log.Println("Consul service", servicediscovery.SERVICE_NAME, "registered")
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// go serviceDiscovery.StartServiceUpdater()
-
-	err = <-errChan
-	serviceDiscovery.DeregisterService()
-	log.Println(err)
+	select {
+	case err := <-errChan:
+		consul.StopService()
+		logrus.Fatal(err)
+	case sig := <-signalChan:
+		logrus.Info("Killed by signal: ", sig)
+		consul.StopService()
+		os.Exit(0)
+	}
 }
